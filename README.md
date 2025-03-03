@@ -1,4 +1,8 @@
-# esp32-ds18b20
+# esp32-ds18b20 & max31850
+
+This fork is meant to be used with MAX31850 chip. The use-case of it is being able to use both sensors simultaneously.
+
+Since all functions are nearly identical, with the main difference being in encoding, it is a good idea to blend it into this library. Therefore avoiding redundant code.
 
 ## Introduction
 

@@ -52,7 +52,17 @@ typedef enum
     DS18B20_ERROR_OWB,     ///< A One Wire Bus error occurred
     DS18B20_ERROR_NULL,    ///< A parameter or value is NULL
 } DS18B20_ERROR;
-
+/**
+ * @brief Success and error codes.
+ */
+typedef enum
+{
+    MAX31850_OK = 0x0,
+    MAX31850_ERROR_OPEN_CIRCUIT = 0x1,
+    MAX31850_ERROR_SHORT_GND = 0x2,
+    MAX31850_ERROR_SHORT_VCC = 0x4,
+    MAX31850_ERROR_UNKNOWN = 0xFF
+} MAX31850_ERROR;
 /**
  * @brief Symbols for the supported temperature resolution of the device.
  */
@@ -198,7 +208,17 @@ DS18B20_ERROR ds18b20_convert_and_read_temp(const DS18B20_Info * ds18b20_info, f
  * @return DS18B20_OK if check is successful, otherwise error.
  */
 DS18B20_ERROR ds18b20_check_for_parasite_power(const OneWireBus * bus, bool * present);
-
+/**
+ * @brief Read last temperature measurement from device.
+ *
+ * This is typically called after ds18b20_start_mass_conversion(), provided enough time
+ * has elapsed to ensure that all devices have completed their conversions.
+ * @param[in] max31850_info Pointer to device info instance. Must be initialised first.
+ * @param[out] value Pointer to the measurement value returned by the device, in degrees Celsius.
+ * @param[out] value Pointer to the Cold-Junction measurement, in degrees Celsius.
+ * @return DS18B20_OK if read is successful, otherwise error.
+ */
+MAX31850_ERROR max31850_read_temp(const DS18B20_Info * max31850_info, float * temperature, float* cold_junction);
 #ifdef __cplusplus
 }
 #endif

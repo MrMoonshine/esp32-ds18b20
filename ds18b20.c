@@ -216,6 +216,62 @@ static float _decode_temp(uint8_t lsb, uint8_t msb, DS18B20_RESOLUTION resolutio
     }
     return result;
 }
+/*
+   * @brief decode Thermocouple value
+   * @param[in] data 2Bit MSB & LSB of first two scratchpad bytes
+   * @returns Thermocouple value
+*/
+static float _decode_temp_tc(uint16_t data){
+    //printf("Data is %.2x\n", data);
+    float ret = 0.0f;
+    int8_t exponent = -2; // Bit 2 has lowest, starting with -2
+    // Start at bit 2
+    for(uint8_t i = 2; i < 15; i++){
+        if(!(data & (1 << i))){
+            continue;
+        }
+        exponent = i - 4;
+        uint16_t value = 1 << abs(exponent);
+        if(exponent < 0){
+            ret += 1.0f/(float)value;
+        }else{
+            ret += value;
+        }
+    }
+    // Is it signed?
+    if(data & (1 << 15)){
+        return -ret;
+    }    
+    return ret;
+}
+/*
+   * @brief decode Cold-Junction value
+   * @param[in] data 2Bit MSB & LSB of scratchpad bytes 2 & 3
+   * @returns Cold-Junction value
+*/
+static float _decode_temp_cj(uint16_t data){
+    //printf("Data is %.2x\n", data);
+    float ret = 0.0f;
+    int8_t exponent = -4; // Bit 4 has lowest, starting with -4
+    // Start at bit 4
+    for(uint8_t i = 4; i < 15; i++){
+        if(!(data & (1 << i))){
+            continue;
+        }
+        exponent = i - 8;
+        uint16_t value = 1 << abs(exponent);
+        if(exponent < 0){
+            ret += 1.0f/(float)value;
+        }else{
+            ret += value;
+        }
+    }
+    // Is it signed?
+    if(data & (1 << 15)){
+        return -ret;
+    }    
+    return ret;
+}
 
 static size_t _min(size_t x, size_t y)
 {
@@ -610,6 +666,37 @@ DS18B20_ERROR ds18b20_check_for_parasite_power(const OneWireBus * bus, bool * pr
     {
         ESP_LOGE(TAG, "bus is NULL");
         err = DS18B20_ERROR_NULL;
+    }
+    return err;
+}
+
+MAX31850_ERROR max31850_read_temp(const DS18B20_Info * max31850_info, float * temperature, float* cold_junction){
+    MAX31850_ERROR err = MAX31850_ERROR_UNKNOWN;
+    if (_is_init(max31850_info))
+    {
+        uint16_t sp_value_tc = 0, sp_value_cj = 0;
+        Scratchpad scratchpad = {0};
+        if ((err = _read_scratchpad(max31850_info, &scratchpad, 2)) == MAX31850_OK)
+        {
+            sp_value_tc = scratchpad.temperature[0] | (scratchpad.temperature[1] << 8);
+            sp_value_cj = scratchpad.trigger_high | (scratchpad.trigger_low << 8);
+        }
+
+        ESP_LOGD(TAG, "sp_value_tc 0x%.2x, sp_value_cj 0x%.2x", sp_value_tc, sp_value_cj);
+
+        // First byte of LSB indicates a fault
+        bool fault = sp_value_tc  & 0x01;
+        if(fault){
+            err = 0;
+            err |= sp_value_cj & 0b0111;
+        }
+
+        if(!temperature)
+            return err;
+        *temperature = _decode_temp_tc(sp_value_tc);
+        if(!cold_junction)
+            return err;
+        *cold_junction = _decode_temp_cj(sp_value_cj);
     }
     return err;
 }
